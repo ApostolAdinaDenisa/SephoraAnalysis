@@ -116,8 +116,8 @@ elif page == "4. Store Locator (Maps)":
     df_geo['lat'] = pd.to_numeric(df_geo['lat'], errors='coerce')
     df_geo['lon'] = pd.to_numeric(df_geo['lon'], errors='coerce')
     
-    # Facilitate: Using GeoPandas
-    geometry = [Point(xy) for xy in zip(df_geo['Lon'], df_geo['Lat'])]
+    # Facilitate: Using GeoPandas (use lowercase lat/lon)
+    geometry = [Point(xy) for xy in zip(df_geo['lon'], df_geo['lat'])]
     gdf = gpd.GeoDataFrame(df_geo, geometry=geometry)
     
     st.write("Locațiile magazinelor Sephora procesate prin coordonate spațiale:")
