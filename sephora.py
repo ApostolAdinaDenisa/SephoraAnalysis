@@ -28,6 +28,18 @@ def load_data():
         
         # Facilitate: Merge/Join
         df = pd.merge(df_sales, df_prod, on='product_id', how='left')
+        # If `discount` isn't provided in the CSVs, derive an approximate value from `event_type`
+        if 'discount' not in df.columns:
+            event_discount_map = {
+                'VIB_Sale': 0.20,
+                'VIB_Sale': 0.20,
+                'Black_Friday': 0.40,
+                'Christmas': 0.25,
+                'Valentines': 0.15,
+                'Easter': 0.10,
+                'Normal': 0.00
+            }
+            df['discount'] = df.get('event_type').map(event_discount_map).fillna(0.0)
         
         # Facilitate: Dealing with missing values & extremes
         # Curățăm datele lipsă (echivalent cu cleaning-ul din SAS)
