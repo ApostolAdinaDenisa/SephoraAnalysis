@@ -29,19 +29,6 @@ def load_data():
         # Facilitate: Merge/Join
         df = pd.merge(df_sales, df_prod, on='product_id', how='left')
         
-        # Dacă nu există coloana `discount`, derivăm o valoare aproximativă din `event_type`
-        # (ex: Black_Friday are discount mare, VIB_Sale mediu etc.)
-        if 'discount' not in df.columns:
-            event_discount_map = {
-                'VIB_Sale': 0.20,
-                'Black_Friday': 0.40,
-                'Christmas': 0.25,
-                'Valentines': 0.15,
-                'Easter': 0.10,
-                'Normal': 0.00
-            }
-            df['discount'] = df['event_type'].map(event_discount_map).fillna(0.0)
-        
         # Facilitate: Dealing with missing values & extremes
         # Curățăm datele lipsă (echivalent cu cleaning-ul din SAS)
         df = df.dropna(subset=['sales', 'category'])
@@ -123,6 +110,11 @@ elif page == "4. Store Locator (Maps)":
         'Stores': [12, 4, 3, 2, 2]
     }
     df_geo = pd.DataFrame(geo_data)
+    # Streamlit's `st.map` expects lowercase 'lat' and 'lon' column names
+    df_geo = df_geo.rename(columns={'Lat': 'lat', 'Lon': 'lon'})
+    # Ensure numeric types for mapping
+    df_geo['lat'] = pd.to_numeric(df_geo['lat'], errors='coerce')
+    df_geo['lon'] = pd.to_numeric(df_geo['lon'], errors='coerce')
     
     # Facilitate: Using GeoPandas
     geometry = [Point(xy) for xy in zip(df_geo['Lon'], df_geo['Lat'])]
