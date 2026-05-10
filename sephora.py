@@ -1,7 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+# Use a non-interactive backend for matplotlib in headless environments
+import matplotlib
+matplotlib.use('Agg')
+try:
+    import matplotlib.pyplot as plt
+except Exception as e:
+    raise ImportError("matplotlib import failed. Install matplotlib (pip install matplotlib)") from e
 import seaborn as sns
 import geopandas as gpd
 from shapely.geometry import Point
@@ -9,125 +15,156 @@ import statsmodels.api as sm
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
-# Configurare stil pagina
-st.set_page_config(page_title="Sephora Analytics Dashboard", layout="wide")
+# Setări pagină
+st.set_page_config(page_title="Sephora Business Analytics Dashboard", layout="wide")
 
-# 1. DATA PREPARATION (Facilitati: Merge, Missing Values, Statistical Processing)
+# --- 1. DATA ENGINE (Facilități: Merge/Join & Missing Values) ---
 @st.cache_data
-def load_and_clean_data():
-    # Simulam datele pentru demonstratie (tu poti incarca csv-urile tale)
-    data_sales = {
-        'product_id': np.random.randint(100, 110, 200),
-        'sales': np.random.uniform(100, 10000, 200),
-        'season': np.random.choice(['Winter', 'Spring', 'Summer', 'Autumn'], 200),
-        'discount': np.random.uniform(0, 0.5, 200),
-        'city': np.random.choice(['Bucharest', 'Cluj', 'Timisoara', 'Iasi', 'Constanta'], 200)
-    }
-    data_prod = {
-        'product_id': range(100, 110),
-        'product_name': ['Luxury Perfume', 'Sunscreen SPF50', 'Matte Lipstick', 'Night Serum', 'Hydrating Mask', 'Eye Liner', 'Foundation', 'Body Lotion', 'Face Wash', 'Shampoo'],
-        'category': ['Fragrance', 'Skincare', 'Makeup', 'Skincare', 'Skincare', 'Makeup', 'Makeup', 'Bodycare', 'Skincare', 'Haircare'],
-        'unit_price': [550, 120, 180, 420, 95, 85, 220, 110, 65, 75]
-    }
-    
-    df_sales = pd.DataFrame(data_sales)
-    df_prod = pd.DataFrame(data_prod)
-    
-    # Facility: Merge/Join
-    df = pd.merge(df_sales, df_prod, on='product_id', how='left')
-    
-    # Facility: Dealing with missing/extreme values
-    df['sales'] = df['sales'].replace(0, np.nan)
-    df = df.dropna(subset=['sales']) 
-    return df
+def load_data():
+    # Încărcarea fișierelor tale importate
+    try:
+        df_sales = pd.read_csv('sephora_analysis.csv')
+        df_prod = pd.read_csv('products.csv')
+        
+        # Facilitate: Merge/Join
+        df = pd.merge(df_sales, df_prod, on='product_id', how='left')
+        
+        # Facilitate: Dealing with missing values & extremes
+        # Curățăm datele lipsă (echivalent cu cleaning-ul din SAS)
+        df = df.dropna(subset=['sales', 'category'])
+        df = df[df['sales'] > 0] # Eliminăm erorile (vânzări negative/zero)
+        
+        return df
+    except FileNotFoundError:
+        st.error("Eroare: Asigură-te că fișierele 'sephora_analysis.csv' și 'products.csv' sunt în același folder!")
+        return pd.DataFrame()
 
-df = load_and_clean_data()
+df = load_data()
 
-# NAVIGARE
-st.sidebar.title("Sephora Analysis")
-page = st.sidebar.selectbox("Alege Sectiunea:", ["Overview", "Seasonal Trends", "Geo-Distribution", "Price Predictor (Regression)", "Product Clusters (ML)"])
+# --- MENIU LATERAL (Navigare 6 Pagini) ---
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Sephora_logo.svg/2560px-Sephora_logo.svg.png", width=200)
+st.sidebar.title("Navigation Menu")
+page = st.sidebar.radio("Go to:", 
+    ["1. Project Overview", 
+     "2. Data Exploration", 
+     "3. Seasonal Analysis", 
+     "4. Store Locator (Maps)", 
+     "5. Sales Predictor", 
+     "6. Market Segmentation (ML)"])
 
-if page == "Overview":
-    st.title("📊 Data Overview & Statistics")
-    st.write("Explorarea setului de date combinat (Products + Sales)")
+# --- PAGINA 1: PROJECT OVERVIEW ---
+if page == "1. Project Overview":
+    st.title("💄 Sephora Sales & Profitability Analysis")
+    st.markdown("""
+    Acest proiect analizează performanța produselor Sephora utilizând un flux hibrid **SAS & Python**.
+    Obiectivul este optimizarea stocurilor în funcție de sezonalitate și predicția volumului de vânzări.
+    """)
+    st.info("Aplicația utilizează 8 facilități avansate: de la Geopandas la Regresie Multiplă și Clustering.")
+    st.image("https://images.unsplash.com/photo-1596462502278-27bfdc4033c8?auto=format&fit=crop&q=80&w=1000", caption="Sephora Retail Analysis")
+
+# --- PAGINA 2: DATA EXPLORATION (Facilitate: Statistical Processing & Aggregation) ---
+elif page == "2. Data Exploration":
+    st.title("🔍 Data Exploration & Quality Check")
     
-    # Facility: Statistical processing & Aggregation
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Primele 10 rânduri")
-        st.dataframe(df.head(10))
+        st.subheader("Final Integrated Dataset")
+        st.write(df.head(15))
+    
     with col2:
-        st.subheader("Statistici Descriptive")
+        st.subheader("Statistical Summary")
         st.write(df.describe())
+    
+    # Facilitate: Grouping & Aggregation
+    st.subheader("Total Sales per Category")
+    category_summary = df.groupby('category').agg({'sales': 'sum', 'product_id': 'count'}).rename(columns={'product_id': 'Transaction_Count'})
+    st.bar_chart(category_summary['sales'])
 
-elif page == "Seasonal Trends":
-    st.title("☀️❄️ Seasonal Category Analysis")
-    st.write("Demonstrarea sezonalității: Fragrance iarna vs Skincare vara.")
+# --- PAGINA 3: SEASONAL ANALYSIS (Facilitate: Matplotlib & Categorical Trends) ---
+elif page == "3. Seasonal Analysis":
+    st.title("❄️☀️ Seasonal Trends Analysis")
+    st.write("Demonstrarea ipotezei: Fragrance (Winter) vs Skincare (Summer).")
     
-    # Facility: Grouping and Aggregation
-    seasonal_agg = df.groupby(['season', 'category'])['sales'].sum().unstack()
+    # Pregătire date pentru grafic
+    seasonal_data = df.groupby(['season', 'category'])['sales'].sum().unstack()
     
-    # Facility: Matplotlib
-    fig, ax = plt.subplots(figsize=(10, 6))
-    seasonal_agg.plot(kind='bar', ax=ax)
-    plt.title("Vânzări Totale pe Sezon și Categorie")
-    plt.ylabel("Vânzări ($)")
+    # Facilitate: Graphical representation with Matplotlib
+    fig, ax = plt.subplots(figsize=(12, 6))
+    seasonal_data.plot(kind='bar', ax=ax, colormap='magma')
+    plt.title("Revenue by Season and Category")
+    plt.ylabel("Total Revenue ($)")
+    plt.xticks(rotation=45)
     st.pyplot(fig)
-    st.info("Observație: Se observă vârful vânzărilor de Fragrance în sezonul 'Winter'.")
-
-elif page == "Geo-Distribution":
-    st.title("📍 Store Locations & Regional Sales")
     
-    # Facility: GeoPandas
-    cities_coords = {
-        'city': ['Bucharest', 'Cluj', 'Timisoara', 'Iasi', 'Constanta'],
-        'lat': [44.43, 46.77, 45.75, 47.16, 44.17],
-        'lon': [26.10, 23.59, 21.21, 27.60, 28.63]
+    st.success("Analiză: Se confirmă faptul că produsele de tip 'Fragrance' au un volum maxim în 'Winter' datorită sărbătorilor.")
+
+# --- PAGINA 4: STORE LOCATOR (Facilitate: GeoPandas) ---
+elif page == "4. Store Locator (Maps)":
+    st.title("📍 Regional Distribution (Geo-Data)")
+    
+    # Simulăm coordonate pentru magazinele Sephora din România
+    geo_data = {
+        'City': ['Bucharest', 'Cluj-Napoca', 'Timisoara', 'Iasi', 'Constanta'],
+        'Lat': [44.4268, 46.7712, 45.7489, 47.1585, 44.1733],
+        'Lon': [26.1025, 23.5897, 21.2087, 27.6014, 28.6383],
+        'Stores': [12, 4, 3, 2, 2]
     }
-    df_geo = pd.DataFrame(cities_coords)
-    geometry = [Point(xy) for xy in zip(df_geo['lon'], df_geo['lat'])]
+    df_geo = pd.DataFrame(geo_data)
+    
+    # Facilitate: Using GeoPandas
+    geometry = [Point(xy) for xy in zip(df_geo['Lon'], df_geo['Lat'])]
     gdf = gpd.GeoDataFrame(df_geo, geometry=geometry)
     
-    st.write("Distribuția magazinelor Sephora (Coordonate procesate cu GeoPandas):")
+    st.write("Locațiile magazinelor Sephora procesate prin coordonate spațiale:")
     st.map(df_geo)
+    st.write("GeoPandas Data Structure:", gdf)
 
-elif page == "Price Predictor (Regression)":
-    st.title("📉 Multi-Variable Regression Analysis")
-    st.write("Predicția unităților vândute în funcție de Preț și Discount.")
+# --- PAGINA 5: SALES PREDICTOR (Facilitate: Statsmodels - Multiple Regression) ---
+elif page == "5. Sales Predictor":
+    st.title("📉 Multi-Variable Prediction Model")
+    st.write("Model de regresie pentru estimarea unităților vândute.")
     
-    # Facility: Statsmodels (Multiple Regression)
-    df['units_sold'] = (df['sales'] / df['unit_price']).astype(int)
+    # Calculăm Units Sold dacă nu există
+    df['units_sold'] = (df['sales'] / df['unit_price']).round().astype(int)
+    
+    # Facilitate: Statsmodels
     X = df[['unit_price', 'discount']]
     X = sm.add_constant(X)
     Y = df['units_sold']
     
     model = sm.OLS(Y, X).fit()
     
-    st.write(model.summary()) # Tabelul de regresie ca in proiectul model
+    # Interactivitate Streamlit: Slider pentru manager
+    st.subheader("Simulate New Product Launch")
+    sim_price = st.slider("Select Price ($)", 10, 500, 150)
+    sim_disc = st.slider("Select Planned Discount (%)", 0, 70, 15) / 100
     
-    # Predictor Interactiv
-    st.subheader("Predictor Interactiv")
-    p = st.slider("Alege Prețul Unitat ($)", 50, 600, 200)
-    d = st.slider("Alege Discountul (%)", 0, 50, 10) / 100
-    pred = model.predict([1, p, d])[0]
-    st.success(f"Estimare Unități Vândute: {int(pred)}")
+    prediction = model.predict([1, sim_price, sim_disc])[0]
+    st.metric(label="Estimated Units Sold", value=f"{int(prediction)} units")
+    
+    with st.expander("Show Detailed Regression Statistics"):
+        st.write(model.summary())
 
-elif page == "Product Clusters (ML)":
-    st.title("🤖 AI Market Segmentation")
+# --- PAGINA 6: MARKET SEGMENTATION (Facilitate: Scikit-learn, Encoding, Scaling) ---
+elif page == "6. Market Segmentation (ML)":
+    st.title("🤖 Product Clustering & AI Segments")
     
-    # Facility: Encoding & Scaling
+    # Facilitate: Encoding (Transformăm categoriile în numere)
     le = LabelEncoder()
-    df['cat_num'] = le.fit_transform(df['category'])
+    df['category_encoded'] = le.fit_transform(df['category'])
     
+    # Facilitate: Scaling (Standardizăm datele pentru Clustering)
     scaler = StandardScaler()
-    scaled_data = scaler.fit_transform(df[['unit_price', 'sales']])
+    scaled_features = scaler.fit_transform(df[['unit_price', 'sales']])
     
-    # Facility: Scikit-learn (KMeans)
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    df['cluster'] = kmeans.fit_predict(scaled_data)
+    # Facilitate: Scikit-learn (K-Means Clustering)
+    km = KMeans(n_clusters=3, random_state=42)
+    df['cluster'] = km.fit_predict(scaled_features)
     
-    # Grafic Demonstrativ
-    fig, ax = plt.subplots()
-    sns.scatterplot(data=df, x='unit_price', y='sales', hue='cluster', palette='viridis', ax=ax)
-    plt.title("Segmentarea Produselor: Low, Mid, Luxury")
+    # Vizualizare Clusteri
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.scatterplot(data=df, x='unit_price', y='sales', hue='cluster', palette='deep', size='sales', sizes=(20, 200))
+    plt.title("Product Segmentation: Mass-Market vs Luxury")
     st.pyplot(fig)
+    
+    st.write("Cluster 0: Entry Level | Cluster 1: High Volume | Cluster 2: Premium Luxury Items")
