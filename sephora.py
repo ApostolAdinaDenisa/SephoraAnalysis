@@ -68,8 +68,15 @@ page = st.sidebar.radio("Go to:",
 if page == "1. Project Overview":
     st.title("💄 Sephora Sales & Profitability Analysis")
     st.markdown("""
-    Acest proiect analizează performanța produselor Sephora utilizând un flux hibrid **SAS & Python**.
-    Obiectivul este optimizarea stocurilor în funcție de sezonalitate și predicția volumului de vânzări.
+    Acest proiect analizează performanța produselor Sephora utilizând un flux hibrid SAS & Python. Obiectivul principal este optimizarea stocurilor în funcție de sezonalitate și predicția volumului de vânzări.
+
+    **Importul Datelor:**  
+    Procesul a început prin colectarea și importul a două seturi de date fundamentale în format .csv: `products.csv` (detalii despre catalog, categorii și prețuri) și `sephora_analysis.csv` (înregistrări ale tranzacțiilor, perioadelor promoționale și locațiilor). Datele au fost curățate de valori nule și armonizate prin operațiuni de joining (unire) pentru a crea o bază de date solidă pentru analiză.
+
+    **Sursa Datelor:**  
+    Datele utilizate în acest studiu de caz sunt derivate din seturile de date publice disponibile pe platforma Kaggle, care conțin informații reale despre produsele și categoriile Sephora.
+
+    **Link sursă date:** [Kaggle - Sephora Products Dataset](https://www.kaggle.com/datasets/nadyinky/sephora-products-and-skincare-reviews)
     """)
     st.info("Aplicația utilizează 8 facilități avansate: de la Geopandas la Regresie Multiplă și Clustering.")
     st.image("https://images.unsplash.com/photo-1596462502278-27bfdc4033c8?auto=format&fit=crop&q=80&w=1000", caption="Sephora Retail Analysis")
