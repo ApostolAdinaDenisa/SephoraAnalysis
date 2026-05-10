@@ -124,9 +124,21 @@ elif page == "5. Sales Predictor":
     st.title("📉 Multi-Variable Prediction Model")
     st.write("Model de regresie pentru estimarea unităților vândute.")
     
-    # Calculăm Units Sold dacă nu există
-    df['units_sold'] = (df['sales'] / df['unit_price']).round().astype(int)
-    
+    # Verificăm existența coloanelor necesare și convertim tipurile în siguranță
+    required_cols = ['sales', 'unit_price', 'discount']
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        st.error(f"Missing required columns in dataset: {', '.join(missing)}.\nPlease check 'products.csv' and 'sephora_analysis.csv'.")
+        st.stop()
+
+    # Convertim coloanele la tip numeric (în caz că vin ca stringuri)
+    df['sales'] = pd.to_numeric(df['sales'], errors='coerce')
+    df['unit_price'] = pd.to_numeric(df['unit_price'], errors='coerce')
+    df['discount'] = pd.to_numeric(df['discount'], errors='coerce').fillna(0)
+
+    # Calculăm Units Sold (rotunjim și convertim la int)
+    df['units_sold'] = (df['sales'] / df['unit_price']).round().fillna(0).astype(int)
+
     # Facilitate: Statsmodels
     X = df[['unit_price', 'discount']]
     X = sm.add_constant(X)
