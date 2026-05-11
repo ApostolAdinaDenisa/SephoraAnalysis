@@ -54,7 +54,6 @@ def load_data():
 df = load_data()
 
 # --- SIDEBAR MENU (6 Pages) ---
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Sephora_logo.svg/2560px-Sephora_logo.svg.png", width=200)
 st.sidebar.title("Navigation Menu")
 page = st.sidebar.radio("Go to:", 
     ["1. Project Overview", 
@@ -212,7 +211,36 @@ elif page == "5. Sales Predictor":
     st.metric(label="Estimated Units Sold", value=f"{int(prediction)} units")
     
     with st.expander("Show Detailed Regression Statistics"):
-        st.write(model.summary())
+        metric_cols = st.columns(4)
+        metric_cols[0].metric("R-squared", f"{model.rsquared:.3f}")
+        metric_cols[1].metric("Adj. R-squared", f"{model.rsquared_adj:.3f}")
+        metric_cols[2].metric("AIC", f"{model.aic:.1f}")
+        metric_cols[3].metric("BIC", f"{model.bic:.1f}")
+
+        st.markdown(
+            """
+            **Interpretare scurtă:**
+            - `R-squared` arată cât din variația vânzărilor este explicată de model.
+            - `Adj. R-squared` e util când compari modele cu număr diferit de variabile.
+            - `AIC` și `BIC` ajută la compararea modelelor, iar valori mai mici sunt în general mai bune.
+            """
+        )
+
+        coef_table = model.summary2().tables[1].reset_index().rename(columns={"index": "Variable"})
+        fit_table = pd.DataFrame([
+            {"Metric": "R-squared", "Value": round(model.rsquared, 4)},
+            {"Metric": "Adj. R-squared", "Value": round(model.rsquared_adj, 4)},
+            {"Metric": "F-statistic", "Value": round(float(model.fvalue), 4) if model.fvalue is not None else np.nan},
+            {"Metric": "Prob (F-statistic)", "Value": round(float(model.f_pvalue), 4) if model.f_pvalue is not None else np.nan},
+            {"Metric": "AIC", "Value": round(model.aic, 4)},
+            {"Metric": "BIC", "Value": round(model.bic, 4)},
+        ])
+
+        st.markdown("**Coefficient Table**")
+        st.dataframe(coef_table, use_container_width=True)
+        st.markdown("**Model Fit**")
+        st.dataframe(fit_table, use_container_width=True)
+        st.caption("Interpretation: coefficients show direction and size of effect, while fit metrics show how well the model explains the data.")
 
 # --- PAGE 6: MARKET SEGMENTATION (Feature: Scikit-learn, Encoding, Scaling) ---
 elif page == "6. Market Segmentation (ML)":
