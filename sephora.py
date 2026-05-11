@@ -66,7 +66,7 @@ page = st.sidebar.radio("Go to:",
 
 # --- PAGE 1: PROJECT OVERVIEW ---
 if page == "1. Project Overview":
-    st.title("💄 Sephora Sales & Profitability Analysis")
+    st.title(" Sephora Sales & Profitability Analysis")
     st.markdown("""
     This project analyzes Sephora product performance using a hybrid SAS & Python pipeline. The primary objective is inventory optimization based on seasonality and sales volume prediction.
 
@@ -79,7 +79,6 @@ if page == "1. Project Overview":
     **Source link:** [Kaggle - Sephora Products Dataset](https://www.kaggle.com/datasets/nadyinky/sephora-products-and-skincare-reviews)
     """)
     st.info("The app uses advanced features from GeoPandas to Multiple Regression and Clustering.")
-    st.image("https://images.unsplash.com/photo-1596462502278-27bfdc4033c8?auto=format&fit=crop&q=80&w=1000", caption="Sephora Retail Analysis")
 
 # --- PAGE 2: DATA EXPLORATION (Feature: Statistical Processing & Aggregation) ---
 elif page == "2. Data Exploration":
@@ -93,6 +92,40 @@ elif page == "2. Data Exploration":
     with col2:
         st.subheader("Statistical Summary")
         st.write(df.describe())
+
+    st.subheader("Mean / Median / Mode")
+    numeric_cols = [col for col in ['sales', 'unit_price', 'discount'] if col in df.columns]
+    if numeric_cols:
+        stats_rows = []
+        for col in numeric_cols:
+            series = pd.to_numeric(df[col], errors='coerce').dropna()
+            if series.empty:
+                continue
+            mode_values = series.mode()
+            stats_rows.append({
+                'Metric': col,
+                'Mean': round(series.mean(), 2),
+                'Median': round(series.median(), 2),
+                'Mode': round(mode_values.iloc[0], 2) if not mode_values.empty else np.nan,
+            })
+
+        if stats_rows:
+            stats_df = pd.DataFrame(stats_rows)
+            st.dataframe(stats_df, use_container_width=True)
+
+            st.markdown(
+                """
+                **Interpretation:**
+                - The mean shows the average level across the selected metrics.
+                - The median is useful when the data has outliers or skewed values.
+                - The mode highlights the most common value and helps spot repeated pricing or sales patterns.
+                - If mean and median are far apart, the distribution is likely skewed.
+                """
+            )
+        else:
+            st.info("No numeric values available for the mean/median/mode summary.")
+    else:
+        st.info("No numeric columns available for the mean/median/mode summary.")
     
     # Feature: Grouping & Aggregation
     st.subheader("Total Sales per Category")
@@ -119,7 +152,7 @@ elif page == "3. Seasonal Analysis":
 
 # --- PAGE 4: STORE LOCATOR (Feature: GeoPandas) ---
 elif page == "4. Store Locator (Maps)":
-    st.title("📍 Regional Distribution (Geo-Data)")
+    st.title(" Regional Distribution (Geo-Data)")
     
     # Simulate coordinates for Sephora stores in Romania
     geo_data = {
@@ -183,7 +216,7 @@ elif page == "5. Sales Predictor":
 
 # --- PAGE 6: MARKET SEGMENTATION (Feature: Scikit-learn, Encoding, Scaling) ---
 elif page == "6. Market Segmentation (ML)":
-    st.title("🤖 Product Clustering & AI Segments")
+    st.title(" Product Clustering & AI Segments")
     
     # Feature: Encoding (transform categories to numbers)
     le = LabelEncoder()
