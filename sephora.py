@@ -1,6 +1,11 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import geopandas as gpd
+from shapely.geometry import Point
+import statsmodels.api as sm
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 # Use a non-interactive backend for matplotlib in headless environments
 import matplotlib
 matplotlib.use('Agg')
@@ -9,11 +14,8 @@ try:
 except Exception as e:
     raise ImportError("matplotlib import failed. Install matplotlib (pip install matplotlib)") from e
 import seaborn as sns
-import geopandas as gpd
-from shapely.geometry import Point
-import statsmodels.api as sm
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+import plotly.express as px
+import plotly.graph_objects as go
 
 # Page settings
 st.set_page_config(page_title="Sephora Business Analytics Dashboard", layout="wide")
@@ -61,7 +63,8 @@ page = st.sidebar.radio("Go to:",
      "3. Seasonal Analysis", 
      "4. Store Locator (Maps)", 
      "5. Sales Predictor", 
-     "6. Market Segmentation (ML)"])
+    "6. Market Segmentation (ML)",
+    "7. Sales Flow (Plotly)"])
 
 # --- PAGE 1: PROJECT OVERVIEW ---
 if page == "1. Project Overview":
@@ -131,6 +134,8 @@ elif page == "2. Data Exploration":
     category_summary = df.groupby('category').agg({'sales': 'sum', 'product_id': 'count'}).rename(columns={'product_id': 'Transaction_Count'})
     st.bar_chart(category_summary['sales'])
 
+    
+
 # --- PAGE 3: SEASONAL ANALYSIS (Feature: Matplotlib & Categorical Trends) ---
 elif page == "3. Seasonal Analysis":
     st.title("❄️☀️ Seasonal Trends Analysis")
@@ -170,9 +175,10 @@ elif page == "4. Store Locator (Maps)":
     # Feature: Using GeoPandas (use lowercase lat/lon)
     geometry = [Point(xy) for xy in zip(df_geo['lon'], df_geo['lat'])]
     gdf = gpd.GeoDataFrame(df_geo, geometry=geometry)
-    
+
     st.write("Sephora store locations processed via spatial coordinates:")
     st.map(df_geo)
+    
     st.write("GeoPandas Data Structure:", gdf)
 
 # --- PAGE 5: SALES PREDICTOR (Feature: Statsmodels - Multiple Regression) ---
@@ -265,3 +271,35 @@ elif page == "6. Market Segmentation (ML)":
     st.pyplot(fig)
     
     st.write("Cluster 0: Entry Level | Cluster 1: High Volume | Cluster 2: Premium Luxury Items")
+
+
+# --- PAGE 7: SALES FLOW (Plotly Line Chart) ---
+elif page == "7. Sales Flow (Plotly)":
+    st.title("📈 Sales Over Time by Category (Plotly)")
+    st.write("Interactive line chart showing monthly sales trends by category. You can enable the moving average for trend smoothing.")
+
+    if df.empty:
+        st.info("No data available to build the sales time series.")
+    else:
+        # Ensure `date` is datetime
+        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        time_df = df.dropna(subset=['date', 'sales', 'category']).copy()
+
+        # Aggregate monthly sales per category (use 'ME' for month-end frequency compatible with pandas)
+        monthly = time_df.groupby([pd.Grouper(key='date', freq='ME'), 'category'])['sales'].sum().reset_index()
+
+        # Plotly line chart
+        fig_line = px.line(monthly, x='date', y='sales', color='category', markers=True,
+                           labels={'sales': 'Total Sales', 'date': 'Month'},
+                           title='Monthly Sales by Category')
+
+        # Option: show 3-month moving average per category
+        if st.checkbox('Show 3-month moving average for trend smoothing'):
+            ma_df = monthly.copy()
+            ma_df['date'] = pd.to_datetime(ma_df['date'])
+            pivot = ma_df.pivot(index='date', columns='category', values='sales').fillna(0)
+            ma = pivot.rolling(window=3, min_periods=1).mean()
+            for col in ma.columns:
+                fig_line.add_scatter(x=ma.index, y=ma[col], mode='lines', name=f"{col} (3m MA)", line=dict(dash='dash'))
+
+        st.plotly_chart(fig_line, use_container_width=True)
